@@ -1,0 +1,8 @@
+[functions]
+  external_node_modules = ["mongodb", "express", "serverless-http", "dotenv", "cors"]
+  node_bundler = "esbuild"
+[[redirects]]
+  force = true
+  from = "/*"
+  status = 200
+  to = "/.netlify/functions/api/:splat"
