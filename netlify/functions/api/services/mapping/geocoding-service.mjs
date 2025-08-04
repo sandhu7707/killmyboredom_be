@@ -10,13 +10,14 @@ import { INCORRECT_REQUEST_PARAMS } from "../../errors/error-types.mjs";
             return requestGeocodingSelfHostedNominatim(searchStr)
         }
         else{
+            console.log(`fetching geocoding for ${searchStr}`)
             return requestGeocodingGeoapify(searchStr)
         }
 
     }
 
     async function requestGeocodingGeoapify(searchStr){
-        return fetch("https://api.geoapify.com/v1/geocode/search?text="+ encodeURIComponent(searchStr) +`&apiKey=${process.env.GEOAPIFY_GEOCODING_API_KEY}`,
+        return fetch("https://api.geoapify.com/v1/geocode/search?text="+ encodeURIComponent(searchStr) +`&apiKey=${process.env.GEOAPIFY_GEOCODING_API_KEY}&filter=rect:69.37,21.82,81.41,35.92`,
                             {method: 'GET'}
                         )
                     .then(response => response.json())

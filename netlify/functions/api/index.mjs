@@ -5,12 +5,13 @@ import serverless from "serverless-http";
 import dotenv from 'dotenv';
 import cors from 'cors';
 import userService from './services/user-service.mjs';
-import { INCORRECT_REQUEST_BODY, INCORRECT_REQUEST_PARAMS, MISSING_REQUIRED_FIELDS } from './errors/error-types.mjs';
+import { INCORRECT_PASSWORD, INCORRECT_REQUEST_BODY, INCORRECT_REQUEST_PARAMS, MISSING_REQUIRED_FIELDS, UNAUTHORISED } from './errors/error-types.mjs';
 import { DUPLICATE_KEY_CODE } from './errors/mongo-error-types.mjs';
-import { USERNAME_ALREADY_EXISTS } from './errors/error-messages.mjs';
+import { USER_NOT_FOUND, USERNAME_ALREADY_EXISTS } from './errors/error-messages.mjs';
 import { MongoError } from 'mongodb'
 import geocodingService from './services/mapping/geocoding-service.mjs'
 import routingService from './services/mapping/routing-service.mjs'
+import businessService from './services/business-service.mjs';
 
 dotenv.config();
 
@@ -26,15 +27,26 @@ const client = new MongoClient(process.env.ATLAS_URI, {
 })
 const clientPromise = client.connect()
 
-app.get("/users", async(req, res) => {
-    const database = (await clientPromise).db("kill_my_boredom")
-    const collection = database.collection('users')
-    const results = await collection.find({}).toArray();
-    res.send(JSON.stringify(results))
+app.get("/users/check-username-availability/", async(req, res) => {
+    const username = req.query.username
+    let db = (await clientPromise).db('kill_my_boredom')
+    res.send({available: await userService.checkUsername(username, db)})
 })
 
+// app.post("/sign-in", express.json(), async(req, res, next) => {
+app.post("/sign-in", async(req, res, next) => {
+    let userData = JSON.parse(req.body.toString()).userData; 
+    // let userData = req.body.userData
+    const database = (await clientPromise).db("kill_my_boredom")
+    userService.signUserIn(userData, database)
+    .then(result => res.status(200).send(result))
+    .catch(err => next(err))
+})
+
+// app.post("/users", express.json(), async (req, res, next) => {
 app.post("/users", async (req, res, next) => {
-    let userData = JSON.parse(req.body.toString()).userData;
+    // let userData = req.body.userData
+    let userData = JSON.parse(req.body.toString()).userData;                    //TODO: why not work here but does on netlify current deployment ? TODO: check if it still works with middleware
     let db = (await clientPromise).db("kill_my_boredom")
     userService.insertUser(userData, db)
     .then(() => res.status(200).send("User added successfully"))
@@ -57,10 +69,82 @@ app.delete("/users", async(req, res, next) => {
     .catch(err => next(err))
 })
 
+//TODO: this businessData thing...
+// app.post('/businessData', express.json(), async(req, res, next) => {
+app.post('/businessData', async(req, res, next) => {
+    let businessData = JSON.parse(req.body.toString())
+    // let businessData = req.body;
+    let db = (await clientPromise).db("kill_my_boredom")
+    businessService.saveBusinessData(businessData, db)
+    .then(() => {
+        res.status(200).send('Business data saved successfully')
+    })
+    .catch(err => {
+        next(err)
+    })
+})
+
+// app.put('/business-data', express.json(), async(req, res, next) => {
+app.put('/business-data', async(req, res, next) => {
+    
+    let businessData = JSON.parse(req.body.toString())
+    // let businessData = req.body;
+    let db = (await clientPromise).db("kill_my_boredom")
+    businessService.updateBusinessData(businessData, db)
+    .then(() => {
+        res.status(200).send('Updated successfully')
+    })
+    .catch(err => next(err))
+})
+
+app.get("/business-data/coords", async(req, res, next) => {
+    let db = (await clientPromise).db('kill_my_boredom')
+    businessService.fetchAllBusinessCoords(db)
+    .then((data) => {
+        res.status(200).send(JSON.stringify(data))
+    })
+    .catch(err => next(err))
+})
+
+app.get("/business-data/", async(req, res, next) => {
+    const businessId = req.query.businessId
+    let db = (await clientPromise).db('kill_my_boredom')
+    businessService.fetchBusinessDataById(businessId, db)
+    .then((data) => {
+        if(!data){
+            res.status(404).send()
+        }
+        else{
+            res.status(200).send(JSON.stringify(data))
+        }
+    })
+    .catch(err => next(err))
+})
+
+// app.post("/registered-businesses", express.json(), async(req, res, next) => {
+app.post("/registered-businesses", async(req, res, next) => {
+    
+    const token = JSON.parse(req.body.toString()).token
+    // const token = req.body.token
+    let db = (await clientPromise).db('kill_my_boredom')
+    businessService.fetchRegisteredBusinesses(token, db)
+    .then(data => {
+        if(!data){
+            res.status(404).send()
+        }
+        else{
+            res.status(200).send(data)
+        }
+    })
+    .catch(err => {
+        next(err)
+    })
+})
+
 app.get("/mapping/geocode/:searchStr", (req, res, next) => {
     let searchStr = req.params.searchStr
     geocodingService.requestGeocoding(searchStr)
-    .then(result => res.send(JSON.stringify(result)))
+    .then(result => res.send(result))
     .catch(err => next(err))
 })
 
@@ -91,6 +175,15 @@ app.use((err, req, res, next) => {
                 res.status(422).send(err.message)
                 break
             }
+            case INCORRECT_PASSWORD: 
+            case USER_NOT_FOUND: {
+                res.status(403).send(err.message)
+                break
+            }
+            case UNAUTHORISED: {
+                res.status(409).send(err.message)
+                break
+            }
             default: res.status(500).send('Server could not process request. Please report the error for resolution.')
         }
     }
@@ -102,23 +195,8 @@ app.get("/", (req, res) => {
 
 
 // app.listen(8888, () => {
-  
+//     console.log("listening on port 8888")
 // })
 
 export const handler = serverless(app)
 
-// export default async (request, context) => {
-//   try {
-
-//     const database = (await clientPromise).db("kill_my_boredom")
-//     const collection = await database.collection('users')
-        
-//     const results = await collection.find({}).toArray();
-
-//     return new Response(JSON.stringify(results))
-//   } catch (error) {
-//     return new Response(error.toString(), {
-//       status: 500,
-//     })
-//   }
-// }
