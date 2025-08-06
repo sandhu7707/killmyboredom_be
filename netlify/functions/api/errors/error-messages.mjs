@@ -5,3 +5,4 @@ export const USERNAME_ALREADY_EXISTS = 'User cannot be created as requested user
 export const PASSWORD_IS_INCORRECT = 'Password is incorrect. Please try again'
 export const USER_NOT_FOUND = 'User not found. Please try again'
 export const UNAUTHORIZED_ACTION = 'Action is unauthorised and cannot be performed.'
+export const VALIDATION_ERROR_MSG = 'one or more of the fields in request have failed validation.'

@@ -12,6 +12,7 @@ import { MongoError } from 'mongodb'
 import geocodingService from './services/mapping/geocoding-service.mjs'
 import routingService from './services/mapping/routing-service.mjs'
 import businessService from './services/business-service.mjs';
+import reviewService from './services/review-service.mjs'
 
 dotenv.config();
 
@@ -66,6 +67,14 @@ app.delete("/users", async(req, res, next) => {
     let db = (await clientPromise).db("kill_my_boredom")
     userService.deleteUser(userData, db)
     .then(() => res.status(200).send('User deleted successfully'))
+    .catch(err => next(err))
+})
+
+app.put("/users/favorite", async(req, res, next) => {
+    let body = JSON.parse(req.body.toString())
+    let db = (await clientPromise).db('kill_my_boredom')
+    userService.addFavorite(body.token, body.businessId, db)
+    .then((user) => res.status(200).send(JSON.stringify({user: user})))
     .catch(err => next(err))
 })
 
@@ -155,6 +164,28 @@ app.get("/mapping/route", (req, res, next) => {
     .catch(err => next(err))
 })
 
+app.post("/reviews", async (req, res, next) => {
+    let body = JSON.parse(req.body.toString())
+    let db = (await clientPromise).db('kill_my_boredom')
+    reviewService.postReview(body.review, body.parentReviewId, body.businessId, body.token, db)
+    .then(result => res.status(200).send('Successfuly posted review'))
+    .catch(err => next(err))
+})
+
+app.get('/reviews', async(req, res, next) => {
+    let businessId = req.query.businessId
+    let db = (await clientPromise).db('kill_my_boredom')
+    reviewService.getReviews(businessId, db)
+    .then(result => res.status(200).send(JSON.stringify(result)))
+    .catch(err => next(err))  
+})
+
+app.delete('/reviews', async(req, res, next) => {
+    let body = JSON.parse(req.body.toString())
+    let db = (await clientPromise).db('kill_my_boredom')
+    reviewService.deleteReview(body.reviewId, body.token, db)
+    .then(() => res.status(200).send('deleted successfully'), (err) => next(err))
+})
 
 app.use((err, req, res, next) => {
     console.log('error handler invoked, err.type: ', err.type, ", err.message: ", err.message, ", complete error: \n", err)

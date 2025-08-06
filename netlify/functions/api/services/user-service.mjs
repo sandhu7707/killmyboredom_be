@@ -67,7 +67,8 @@ import jwt from 'jsonwebtoken'
                 user: {
                     username: user.username,
                     email: user.email,
-                    phone: user.phoneNumber
+                    phone: user.phoneNumber,
+                    favorites: user.favorites
                 },
                 token: token
             }
@@ -81,6 +82,32 @@ import jwt from 'jsonwebtoken'
         let usersCollection = db.collection('users');
         validateUserData(userData)
         return usersCollection.deleteOne({username: userData.username})
+    }
+
+    async function addFavorite(token, businessId, db){
+        let userId = jwt.verify(token, process.env.JWT_SECRET).user_id
+        let usersCollection = db.collection('users');
+        let user = await usersCollection.findOne({_id: userId})
+
+        let favorites = user.favorites
+        if(user.favorites && favorites.includes(businessId)){
+            favorites.splice(favorites.findIndex(it => it === businessId),1)
+        }
+        else if(user.favorites){
+            favorites.push(businessId)
+        } 
+        else{
+            favorites = [businessId]
+        }
+
+        await usersCollection.updateOne({_id: user._id}, {$set: {favorites: favorites}})
+        
+        return {
+                    username: user.username,
+                    email: user.email,
+                    phone: user.phoneNumber,
+                    favorites: favorites
+                }
     }
 
     function validateUserData(userData){
@@ -99,4 +126,4 @@ import jwt from 'jsonwebtoken'
 
     }
 
-export default {insertUser, updateUser, deleteUser, checkUsername, signUserIn}
+export default {insertUser, updateUser, deleteUser, checkUsername, signUserIn, addFavorite}
