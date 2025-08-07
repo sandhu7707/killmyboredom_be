@@ -1,7 +1,7 @@
 import { INCORRECT_REQUEST_PARAMS, UNAUTHORISED } from "../errors/error-types.mjs"
 import { ObjectId, UUID } from "mongodb"
 import jwt from 'jsonwebtoken'
-import { UNAUTHORIZED_ACTION } from "../errors/error-messages.mjs"
+import { MESSAGE_INCORRECT_REQUEST_PARAMS_MAPPING, UNAUTHORIZED_ACTION } from "../errors/error-messages.mjs"
 
 async function saveBusinessData(businessData, db){
     
@@ -81,4 +81,21 @@ async function fetchRegisteredBusinesses(token, db){
     return businesses
 }
 
-export default { saveBusinessData, fetchAllBusinessCoords, fetchBusinessDataById, fetchRegisteredBusinesses, updateBusinessData }
+async function fetchFavoriteBusinesses(token, db){
+    let userId = jwt.verify(token, process.env.JWT_SECRET).user_id
+    let usersCollection = db.collection('users');
+    let businessDataCollection = db.collection('businessData')
+
+    let user = await usersCollection.findOne({_id: userId})
+    if(!user){
+        throw({type: INCORRECT_REQUEST_PARAMS, message: MESSAGE_INCORRECT_REQUEST_PARAMS_MAPPING})
+    }
+    if(!user.favorites){
+        return []
+    }
+
+    let businessIds = user.favorites.map(it => ObjectId.createFromHexString(it))
+    return businessDataCollection.find({_id: {$in: businessIds}}).toArray()
+}
+
+export default { fetchFavoriteBusinesses, saveBusinessData, fetchAllBusinessCoords, fetchBusinessDataById, fetchRegisteredBusinesses, updateBusinessData }

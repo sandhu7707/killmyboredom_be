@@ -130,6 +130,14 @@ app.get("/business-data/", async(req, res, next) => {
     .catch(err => next(err))
 })
 
+app.get("/favorite-businesses", async(req, res, next) => {
+    let token = req.query.token
+    let db = (await clientPromise).db("kill_my_boredom")
+    businessService.fetchFavoriteBusinesses(token, db)
+    .then((data) => res.status(200).send(JSON.stringify(data)))
+    .catch(err => next(err))
+})
+
 // app.post("/registered-businesses", express.json(), async(req, res, next) => {
 app.post("/registered-businesses", async(req, res, next) => {
     
